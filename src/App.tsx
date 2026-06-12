@@ -206,7 +206,6 @@ export default function App() {
   const [mobileScale, setMobileScale] = useState(1);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -292,14 +291,11 @@ export default function App() {
     setCanvasZoom(z);
   };
 
-  // ─── 💡 🌟 核心升级：将双指手势代理绑定到整个大背景工作区 ────────────────────────
   const handleWorkspaceStart = (initEvent: React.MouseEvent | React.TouchEvent) => {
     const isTouch = 'touches' in initEvent;
     
-    // 如果在手机端，且检测到双指按下，同时当前选种了某个图片格子
     if (isTouch && initEvent.touches.length === 2 && selectedGridIndex !== null) {
       if (initEvent.cancelable) initEvent.preventDefault();
-      
       const idx = selectedGridIndex;
       const initDist = getTouchDistance(initEvent);
       const initScale = getTransform(idx).scale;
@@ -309,24 +305,19 @@ export default function App() {
         const currentDist = getTouchDistance(me);
         if (initDist > 0 && currentDist > 0) {
           const factor = currentDist / initDist;
-          // 隔空控制选中图层的无级放缩
           updateTransform(idx, 'scale', Math.max(0.1, Math.min(8, initScale * factor)));
         }
       };
-
       const onTouchEndGlobalPinch = () => {
         window.removeEventListener('touchmove', onTouchMoveGlobalPinch);
         window.removeEventListener('touchend', onTouchEndGlobalPinch);
       };
-
       window.addEventListener('touchmove', onTouchMoveGlobalPinch, { passive: false });
       window.addEventListener('touchend', onTouchEndGlobalPinch);
       return;
     }
 
-    // 正常的单指抓手漫游空间
     if (!isSpacePressed && !isTouch && (initEvent as React.MouseEvent).button !== 1) return;
-    
     setIsWorkspacePanning(true);
     const { clientX: sx, clientY: sy } = getEventXY(initEvent);
     const ip = { ...canvasPan };
@@ -354,11 +345,9 @@ export default function App() {
 
     const isSelected = selectedGridIndex === idx;
 
-    // 💡 🌟 如果在格子上直接双指，也可以完美支持
     if (isTouch && reactEvent.touches.length === 2 && isSelected) {
       const initDist = getTouchDistance(reactEvent);
       const initScale = getTransform(idx).scale;
-
       const onTouchMovePinch = (me: TouchEvent) => {
         if (me.touches.length < 2) return;
         const currentDist = getTouchDistance(me);
@@ -367,18 +356,15 @@ export default function App() {
           updateTransform(idx, 'scale', Math.max(0.1, Math.min(8, initScale * factor)));
         }
       };
-
       const onTouchEndPinch = () => {
         window.removeEventListener('touchmove', onTouchMovePinch);
         window.removeEventListener('touchend', onTouchEndPinch);
       };
-
       window.addEventListener('touchmove', onTouchMovePinch, { passive: false });
       window.addEventListener('touchend', onTouchEndPinch);
       return;
     }
 
-    // 单指触摸图片开始平移
     const { clientX: sx, clientY: sy } = getEventXY(reactEvent);
     const t = getTransform(idx);
     const ioX = t.offsetX, ioY = t.offsetY;
@@ -439,15 +425,72 @@ export default function App() {
     updateTransform(idx, 'scale', Math.max(0.1, Math.min(8, t.scale + e.deltaY * -0.0012)));
   };
 
-  const triggerBatchUpload = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ─── 💡 🌟 核心重构：方案 B 智能追加导入流（完美通过 iOS 物理覆盖机制激活） ───
+  const handleBatchAppendFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
+    
     const newUrls = Array.from(files).map(f => URL.createObjectURL(f));
-    setImages(prev => { prev.forEach(u => URL.revokeObjectURL(u)); return newUrls; });
-    setTransforms({}); setImageAspects({}); setSelectedGridIndex(null); setCanvasZoom(1); setCanvasPan({x:0,y:0}); setTemplateIndex(0);
+    // 直接在原先的数组屁股后面追加，保留老照片！
+    setImages(prev => [...prev, ...newUrls]);
+    e.target.value = ''; // 清空选择器器，允许重复追加相同文件
+  };
+
+  // ─── 💡 🌟 核心新增：精准单图替换机制 ───────────────────────────────────────
+  const handleReplaceSingleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files?.length || selectedGridIndex === null) return;
+    
+    const targetIdx = selectedGridIndex;
+    const newUrl = URL.createObjectURL(files[0]);
+
+    setImages(prev => {
+      const updated = [...prev];
+      URL.revokeObjectURL(updated[targetIdx]); // 安全释放老内存
+      updated[targetIdx] = newUrl;
+      return updated;
+    });
+
+    // 抹掉上张图的长宽比，让新图加载时重新触发布局自适应计算
+    setImageAspects(prev => { const n = { ...prev }; delete n[targetIdx]; return n; });
     e.target.value = '';
+  };
+
+  // ─── 💡 🌟 核心新增：精准单图删除并智能降级矩阵 ───────────────────────────────
+  const handleCancelSingleFile = () => {
+    if (selectedGridIndex === null) return;
+    const targetIdx = selectedGridIndex;
+
+    setImages(prev => {
+      const updated = [...prev];
+      URL.revokeObjectURL(updated[targetIdx]); // 销毁老内存网
+      updated.splice(targetIdx, 1);
+      return updated;
+    });
+
+    // 联动平移和缩放矩阵图层向前整体坍塌挪位
+    setTransforms(prev => {
+      const nextT: Record<number, TransformState> = {};
+      Object.keys(prev).forEach(k => {
+        const i = parseInt(k);
+        if (i < targetIdx) nextT[i] = prev[i];
+        else if (i > targetIdx) nextT[i - 1] = prev[i];
+      });
+      return nextT;
+    });
+
+    // 长宽比映射索引同步位移
+    setImageAspects(prev => {
+      const nextA: Record<number, number> = {};
+      Object.keys(prev).forEach(k => {
+        const i = parseInt(k);
+        if (i < targetIdx) nextA[i] = prev[i];
+        else if (i > targetIdx) nextA[i - 1] = prev[i];
+      });
+      return nextA;
+    });
+
+    setSelectedGridIndex(null); // 清空选择，完成降级排版布局
   };
 
   const exportFusedImage = async () => {
@@ -476,20 +519,13 @@ export default function App() {
         ctx.translate(dx + dw / 2 + t.offsetX * sf, dy + dh / 2 + t.offsetY * sf);
         ctx.rotate((t.rotate * Math.PI) / 180); ctx.scale(t.scale, t.scale);
         
-        const rT = dw / dh;
-        const rS = img.naturalWidth / img.naturalHeight;
+        const rT = dw / dh; const rS = img.naturalWidth / img.naturalHeight;
         let renderW: number, renderH: number;
-
-        if (rS > rT) {
-          renderH = dh; renderW = dh * rS;
-        } else {
-          renderW = dw; renderH = dw / rS;
-        }
+        if (rS > rT) { renderH = dh; renderW = dh * rS; } else { renderW = dw; renderH = dw / rS; }
         
         ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
         ctx.restore();
       }
-      
       const dl = document.createElement('a'); dl.download = `GridStudio_Fused_${Date.now()}.jpg`;
       dl.href = canvas.toDataURL('image/jpeg', 0.88); dl.click();
     } catch(err) { console.error('导出失败', err); }
@@ -512,12 +548,20 @@ export default function App() {
       }}>
         {/* 顶栏 */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', gap: '12px' }}>
-          <button onClick={triggerBatchUpload} style={{
-            padding: '8px 18px', backgroundColor: '#a3e635', color: '#090d16', border: 'none',
-            borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
-          }}>📂 批量导入照片</button>
+          
+          {/* 💡 🌟 核心升级：废弃 display: none，改用绝对定位透明遮罩无缝覆盖机制 */}
+          <div style={{ position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+            <button style={{
+              padding: '8px 18px', backgroundColor: '#a3e635', color: '#090d16', border: 'none',
+              borderRadius: '8px', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
+            }}>📂 {images.length > 0 ? '➕ 继续追加照片' : '📂 批量导入照片'}</button>
+            <input type="file" onChange={handleBatchAppendFiles} accept="image/*" multiple style={{
+              position: 'absolute', left: 0, top: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer', fontSize: '100px'
+            }} />
+          </div>
+
           <span style={{ fontSize: '11px', color: '#64748b' }}>
-            {images.length > 0 ? `已智能载入 ${images.length} 张（隔空触控板模式已激活）` : '暂未导入图片'}
+            {images.length > 0 ? `已智能载入 ${images.length} 张（追加排版流已就绪）` : '暂未导入图片'}
           </span>
           <button onClick={exportFusedImage} disabled={isExporting || !images.length} style={{
             marginLeft: 'auto', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px',
@@ -579,34 +623,56 @@ export default function App() {
           </div>
         </div>
 
-        {/* 顶部微调滑块栏 */}
+        {/* 顶部微调滑块栏（💡 🌟 已完美整合一键替换与智能降级删除按钮） */}
         {selectedGridIndex !== null && (
           <div style={{
-            marginTop: '10px', padding: '8px 12px', backgroundColor: 'rgba(163,230,53,0.06)',
-            border: '1px dashed rgba(163,230,53,0.3)', borderRadius: '8px',
-            display: 'flex', alignItems: 'center', gap: '12px',
+            marginTop: '10px', padding: '10px 12px', backgroundColor: 'rgba(163,230,53,0.06)',
+            border: '1px dashed rgba(163,230,53,0.3)', borderRadius: '12px',
+            display: 'flex', flexDirection: 'column', gap: '8px'
           }}>
-            <span style={{ fontSize: '12px', color: '#a3e635', fontWeight: 600, whiteSpace: 'nowrap' }}>⚙️ 调节图 {selectedGridIndex + 1}:</span>
-            <input type="range" min="-180" max="180" step="0.1"
-              value={getTransform(selectedGridIndex).rotate}
-              onChange={e => updateTransform(selectedGridIndex, 'rotate', parseFloat(e.target.value))}
-              style={{ flexGrow: 1, accentColor: '#a3e635', cursor: 'pointer', height: '5px' }} />
-            <span style={{ fontSize: '12px', color: '#cbd5e1', minWidth: '45px', fontFamily: 'monospace', textAlign: 'right' }}>
-              {getTransform(selectedGridIndex).rotate.toFixed(1)}°
-            </span>
-            <button onClick={() => updateTransform(selectedGridIndex, 'rotate', 0)}
-              style={{ padding: '2px 8px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer' }}>
-              角零位
-            </button>
-            <button onClick={() => setTransforms(prev => ({ ...prev, [selectedGridIndex]: DEFAULT_TRANSFORM }))}
-              style={{ padding: '2px 8px', backgroundColor: '#e11d48', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer' }}>
-              重置图层
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '12px', color: '#a3e635', fontWeight: 600, whiteSpace: 'nowrap' }}>⚙️ 调节图 {selectedGridIndex + 1}:</span>
+              <input type="range" min="-180" max="180" step="0.1"
+                value={getTransform(selectedGridIndex).rotate}
+                onChange={e => updateTransform(selectedGridIndex, 'rotate', parseFloat(e.target.value))}
+                style={{ flexGrow: 1, accentColor: '#a3e635', cursor: 'pointer', height: '5px' }} />
+              <span style={{ fontSize: '12px', color: '#cbd5e1', minWidth: '45px', fontFamily: 'monospace', textAlign: 'right' }}>
+                {getTransform(selectedGridIndex).rotate.toFixed(1)}°
+              </span>
+              <button onClick={() => updateTransform(selectedGridIndex, 'rotate', 0)}
+                style={{ padding: '3px 8px', backgroundColor: '#334155', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '10px', cursor: 'pointer' }}>
+                角零位
+              </button>
+            </div>
+
+            {/* 功能快捷键动作栏 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              
+              {/* 💡 🌟 精准无损单图替换（同样采用透明定位覆盖，彻底免疫 iOS 拦截） */}
+              <div style={{ position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                <button style={{
+                  padding: '4px 10px', backgroundColor: '#2563eb', color: '#fff', border: 'none',
+                  borderRadius: '5px', fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+                }}>🔄 替换当前单张</button>
+                <input type="file" onChange={handleReplaceSingleFile} accept="image/*" style={{
+                  position: 'absolute', left: 0, top: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer'
+                }} />
+              </div>
+
+              {/* 💡 🌟 精准单图删除并自动收缩降级布局 */}
+              <button onClick={handleCancelSingleFile} style={{
+                padding: '4px 10px', backgroundColor: '#dc2626', color: '#fff', border: 'none',
+                borderRadius: '5px', fontSize: '11px', fontWeight: 600, cursor: 'pointer'
+              }}>🗑️ 精准删除此图</button>
+
+              <button onClick={() => setTransforms(prev => ({ ...prev, [selectedGridIndex]: DEFAULT_TRANSFORM }))}
+                style={{ padding: '4px 10px', backgroundColor: '#4b5563', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '11px', cursor: 'pointer', marginLeft: 'auto' }}>
+                重置此层位置
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple style={{ display: 'none' }} />
 
       {/* ── PS 级别工作区 ── */}
       <div ref={workspaceRef} onWheel={handleWorkspaceWheel} onMouseDown={handleWorkspaceStart} onTouchStart={handleWorkspaceStart} style={{
@@ -616,13 +682,16 @@ export default function App() {
         cursor: isSpacePressed ? (isWorkspacePanning ? 'grabbing' : 'grab') : 'default',
       }}>
         {!images.length ? (
-          <div onClick={e => { e.stopPropagation(); triggerBatchUpload(); }} style={{
+          <div style={{
             width: '280px', height: '280px', border: '2px dashed #334155', borderRadius: '16px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            color: '#475569', cursor: 'pointer', gap: '8px',
+            color: '#475569', position: 'relative', overflow: 'hidden'
           }}>
             <span style={{ fontSize: '32px' }}>📥</span>
-            <span style={{ fontSize: '14px' }}>点击批量导入单据/花卉照片</span>
+            <span style={{ fontSize: '14px', marginTop: '8px' }}>点击批量导入单据/花卉照片</span>
+            <input type="file" onChange={handleBatchAppendFiles} accept="image/*" multiple style={{
+              position: 'absolute', left: 0, top: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer'
+            }} />
           </div>
         ) : (
           <div style={{
@@ -723,12 +792,12 @@ export default function App() {
                       width: isCol ? '2px' : '100%',
                       height: isCol ? '100%' : '2px',
                       backgroundColor: 'rgba(163,230,53,0.5)',
-                  }} />
-                </div>
-              );
-            })}
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
         )}
       </div>
 
