@@ -22,7 +22,6 @@ const DEFAULT_TRANSFORM: TransformState = { scale: 1, rotate: 0, offsetX: 0, off
 interface CellLayout { x: number; y: number; w: number; h: number; }
 interface DividerLayout { type: 'col' | 'row'; pos: number; span: [number, number]; }
 
-// ─── 全动态数学自适应模板矩阵 ─────────────────────────────────────────────
 const getDynamicLayout = (count: number, tpl: number, col: number, row: number) => {
   const cells: CellLayout[] = [];
   const dividers: DividerLayout[] = [];
@@ -204,12 +203,35 @@ export default function App() {
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isWorkspacePanning, setIsWorkspacePanning] = useState(false);
 
+  // 💡 针对手机端小屏幕建立响应式自适应微缩系数
+  const [mobileScale, setMobileScale] = useState(1);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return () => { images.forEach(u => URL.revokeObjectURL(u)); };
   }, []);
+
+  // 监听手机屏幕尺寸变化，自动计算微缩系数，防止大画布撑破手机屏幕
+  useEffect(() => {
+    const handleResize = () => {
+      if (!workspaceRef.current) return;
+      const wWidth = workspaceRef.current.clientWidth - 32;
+      const wHeight = workspaceRef.current.clientHeight - 32;
+      const currentCanvas = getCanvasDimensions(aspectRatio);
+      
+      let factor = 1;
+      if (currentCanvas.width > wWidth || currentCanvas.height > wHeight) {
+        factor = Math.min(wWidth / currentCanvas.width, wHeight / currentCanvas.height);
+      }
+      setMobileScale(factor);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [aspectRatio, images.length]);
 
   useEffect(() => {
     const dn = (e: KeyboardEvent) => { if (e.code==='Space' && document.activeElement?.tagName!=='INPUT') { e.preventDefault(); setIsSpacePressed(true); } };
@@ -225,7 +247,6 @@ export default function App() {
 
   const canvasSize = getCanvasDimensions(aspectRatio);
 
-  // ─── 💡 统一转换电脑鼠标与移动端手指触控的坐标提取器 ─────────────────────────
   const getEventXY = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
     if ('touches' in e) {
       if (e.touches && e.touches.length > 0) return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
@@ -233,6 +254,14 @@ export default function App() {
     }
     const me = e as MouseEvent | React.MouseEvent;
     return { clientX: me.clientX, clientY: me.clientY };
+  };
+
+  // 💡 几何数学公式：实时计算两根触控手指之间的物理直线距离
+  const getTouchDistance = (e: React.TouchEvent | TouchEvent) => {
+    if (e.touches.length < 2) return 0;
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
   };
 
   const handleDividerStart = (initEvent: React.MouseEvent | React.TouchEvent, type: 'col' | 'row') => {
@@ -269,6 +298,7 @@ export default function App() {
   const handleWorkspaceStart = (initEvent: React.MouseEvent | React.TouchEvent) => {
     const isTouch = 'touches' in initEvent;
     if (!isSpacePressed && !isTouch && (initEvent as React.MouseEvent).button !== 1) return;
+    if (isTouch && initEvent.touches.length >= 2) return; // 留给格子双指缩放
     
     setIsWorkspacePanning(true);
     const { clientX: sx, clientY: sy } = getEventXY(initEvent);
@@ -292,12 +322,37 @@ export default function App() {
     if (!isTouch && (reactEvent as React.MouseEvent).button !== 0) return;
     if (isSpacePressed) return;
     
-    // 💡 阻止移动端全屏下拉刷新的体验硬伤
     if (reactEvent.cancelable) reactEvent.preventDefault();
     reactEvent.stopPropagation();
 
-    const { clientX: sx, clientY: sy } = getEventXY(reactEvent);
     const isSelected = selectedGridIndex === idx;
+
+    // 💡 🌟 核心升级：如果手机端检测到双指，立刻接管并强行进入多点触控（放缩）状态
+    if (isTouch && reactEvent.touches.length === 2 && isSelected) {
+      const initDist = getTouchDistance(reactEvent);
+      const initScale = getTransform(idx).scale;
+
+      const onTouchMovePinch = (me: TouchEvent) => {
+        if (me.touches.length < 2) return;
+        const currentDist = getTouchDistance(me);
+        if (initDist > 0 && currentDist > 0) {
+          const factor = currentDist / initDist;
+          updateTransform(idx, 'scale', Math.max(0.1, Math.min(8, initScale * factor)));
+        }
+      };
+
+      const onTouchEndPinch = () => {
+        window.removeEventListener('touchmove', onTouchMovePinch);
+        window.removeEventListener('touchend', onTouchEndPinch);
+      };
+
+      window.addEventListener('touchmove', onTouchMovePinch, { passive: false });
+      window.addEventListener('touchend', onTouchEndPinch);
+      return;
+    }
+
+    // 单指或鼠标正常平移
+    const { clientX: sx, clientY: sy } = getEventXY(reactEvent);
     const t = getTransform(idx);
     const ioX = t.offsetX, ioY = t.offsetY;
     let hasMoved = false, lastTarget = idx;
@@ -306,6 +361,7 @@ export default function App() {
     const layoutSnap = getDynamicLayout(images.length, templateIndex, colPercent, rowPercent);
 
     const mv = (me: MouseEvent | TouchEvent) => {
+      if ('touches' in me && me.touches.length >= 2) return; // 突发双指则退出平移
       const { clientX, clientY } = getEventXY(me);
       const dx = clientX - sx, dy = clientY - sy;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
@@ -313,7 +369,7 @@ export default function App() {
       if (isSelected) {
         setTransforms(prev => ({
           ...prev,
-          [idx]: { ...(prev[idx] || DEFAULT_TRANSFORM), offsetX: ioX + dx / canvasZoom, offsetY: ioY + dy / canvasZoom }
+          [idx]: { ...(prev[idx] || DEFAULT_TRANSFORM), offsetX: ioX + dx / (canvasZoom * mobileScale), offsetY: ioY + dy / (canvasZoom * mobileScale) }
         }));
       } else {
         if (containerRef.current) {
@@ -434,7 +490,7 @@ export default function App() {
             borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
           }}>📂 批量导入照片</button>
           <span style={{ fontSize: '11px', color: '#64748b' }}>
-            {images.length > 0 ? `已智能载入 ${images.length} 张（完美剪贴遮罩流已就绪）` : '暂未导入图片'}
+            {images.length > 0 ? `已智能载入 ${images.length} 张（双指缩放/多选相册已就绪）` : '暂未导入图片'}
           </span>
           <button onClick={exportFusedImage} disabled={isExporting || !images.length} style={{
             marginLeft: 'auto', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px',
@@ -523,19 +579,18 @@ export default function App() {
         )}
       </div>
 
-      {/* 💡 🌟 修正 #1：加入明确的 accept="image/*" 格式定义，强制解锁手机系统相册的多选九宫格 */}
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple style={{ display: 'none' }} />
 
       {/* ── PS 级别工作区 ── */}
-      <div onWheel={handleWorkspaceWheel} onMouseDown={handleWorkspaceStart} onTouchStart={handleWorkspaceStart} style={{
+      <div ref={workspaceRef} onWheel={handleWorkspaceWheel} onMouseDown={handleWorkspaceStart} onTouchStart={handleWorkspaceStart} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexGrow: 1, width: '100%', minHeight: '420px',
+        flexGrow: 1, width: '100%', minHeight: '320px',
         overflow: 'hidden', backgroundColor: '#070a10', position: 'relative',
         cursor: isSpacePressed ? (isWorkspacePanning ? 'grabbing' : 'grab') : 'default',
       }}>
         {!images.length ? (
           <div onClick={e => { e.stopPropagation(); triggerBatchUpload(); }} style={{
-            width: '400px', height: '400px', border: '2px dashed #334155', borderRadius: '16px',
+            width: '280px', height: '280px', border: '2px dashed #334155', borderRadius: '16px',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             color: '#475569', cursor: 'pointer', gap: '8px',
           }}>
@@ -543,102 +598,110 @@ export default function App() {
             <span style={{ fontSize: '14px' }}>点击批量导入单据/花卉照片</span>
           </div>
         ) : (
-          <div ref={containerRef} style={{
-            position: 'relative',
-            width: `${canvasSize.width}px`, height: `${canvasSize.height}px`,
-            backgroundColor: '#090d16', border: '2px solid #334155', overflow: 'hidden',
-            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
-            transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
+          /* 💡 🌟 核心升级：外层加上微缩缩放容器，根据 mobileScale 自动缩放，保证手机端完美呈现所有裁剪宽高比 */
+          <div style={{
+            transform: `scale(${mobileScale})`,
             transformOrigin: 'center center',
-            transition: isWorkspacePanning ? 'none' : 'width 0.2s, height 0.2s, transform 0.1s ease-out',
+            transition: 'transform 0.15s ease-out',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
+            <div ref={containerRef} style={{
+              position: 'relative',
+              width: `${canvasSize.width}px`, height: `${canvasSize.height}px`,
+              backgroundColor: '#090d16', border: '2px solid #334155', overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)',
+              transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`,
+              transformOrigin: 'center center',
+              transition: isWorkspacePanning ? 'none' : 'width 0.2s, height 0.2s, transform 0.1s ease-out',
+            }}>
 
-            {/* 剪贴遮罩格子层 */}
-            {currentLayout.cells.map((cell, index) => {
-              const transform = getTransform(index);
-              const isSelected = selectedGridIndex === index;
-              const isBeingDragged = draggedIndex === index;
-              const isPotentialTarget = potentialSwapIndex === index && draggedIndex !== index;
+              {/* 剪贴遮罩格子层 */}
+              {currentLayout.cells.map((cell, index) => {
+                const transform = getTransform(index);
+                const isSelected = selectedGridIndex === index;
+                const isBeingDragged = draggedIndex === index;
+                const isPotentialTarget = potentialSwapIndex === index && draggedIndex !== index;
 
-              const cellWidthPx = (cell.w / 100) * canvasSize.width;
-              const cellHeightPx = (cell.h / 100) * canvasSize.height;
-              const cellAspect = cellWidthPx / cellHeightPx;
-              const imgAspect = imageAspects[index];
+                const cellWidthPx = (cell.w / 100) * canvasSize.width;
+                const cellHeightPx = (cell.h / 100) * canvasSize.height;
+                const cellAspect = cellWidthPx / cellHeightPx;
+                const imgAspect = imageAspects[index];
 
-              let dynamicImgStyle: React.CSSProperties = {
-                flexShrink: 0,
-                pointerEvents: 'none',
-                transform: `translate(${transform.offsetX}px, ${transform.offsetY}px) scale(${transform.scale}) rotate(${transform.rotate}deg)`,
-                transformOrigin: 'center center',
-              };
+                let dynamicImgStyle: React.CSSProperties = {
+                  flexShrink: 0,
+                  pointerEvents: 'none',
+                  transform: `translate(${transform.offsetX}px, ${transform.offsetY}px) scale(${transform.scale}) rotate(${transform.rotate}deg)`,
+                  transformOrigin: 'center center',
+                };
 
-              if (imgAspect) {
-                if (imgAspect > cellAspect) {
-                  dynamicImgStyle.height = '100%'; dynamicImgStyle.width = 'auto';
+                if (imgAspect) {
+                  if (imgAspect > cellAspect) {
+                    dynamicImgStyle.height = '100%'; dynamicImgStyle.width = 'auto';
+                  } else {
+                    dynamicImgStyle.width = '100%'; dynamicImgStyle.height = 'auto';
+                  }
                 } else {
-                  dynamicImgStyle.width = '100%'; dynamicImgStyle.height = 'auto';
+                  dynamicImgStyle.width = '100%'; dynamicImgStyle.height = '100%';
                 }
-              } else {
-                dynamicImgStyle.width = '100%'; dynamicImgStyle.height = '100%';
-              }
 
-              return (
-                <div key={index}
-                  onWheel={e => handleCellWheel(e, index)}
-                  onMouseDown={e => handleCellStart(e, index)}
-                  onTouchStart={e => handleCellStart(e, index)} // 💡 🌟 修正 #2：桥接手机单指触摸起点信号
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    position: 'absolute',
-                    left: `${cell.x}%`, top: `${cell.y}%`, width: `${cell.w}%`, height: `${cell.h}%`,
-                    boxSizing: 'border-box', overflow: 'hidden',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: isSelected ? '2px solid #a3e635' : isPotentialTarget ? '2px dashed #f59e0b' : '1px solid rgba(255,255,255,0.06)',
-                    zIndex: isSelected || isBeingDragged ? 20 : 1,
-                    opacity: isBeingDragged ? 0.35 : 1,
-                    cursor: isSpacePressed ? 'inherit' : (isSelected ? 'move' : 'grab'),
-                    touchAction: 'none' // 💡 强力锁死移动端网页原生缩放，彻底把画布留给拼图矩阵
-                  }}>
-                  <div style={{
-                    width: '100%', height: '100%', backgroundColor: '#111827',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <img src={images[index]} alt={`图片 ${index + 1}`} 
-                      onLoad={(e) => {
-                        const aspect = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
-                        setImageAspects(prev => ({ ...prev, [index]: aspect }));
-                      }}
-                      style={dynamicImgStyle}
-                    />
+                return (
+                  <div key={index}
+                    onWheel={e => handleCellWheel(e, index)}
+                    onMouseDown={e => handleCellStart(e, index)}
+                    onTouchStart={e => handleCellStart(e, index)}
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      position: 'absolute',
+                      left: `${cell.x}%`, top: `${cell.y}%`, width: `${cell.w}%`, height: `${cell.h}%`,
+                      boxSizing: 'border-box', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: isSelected ? '2px solid #a3e635' : isPotentialTarget ? '2px dashed #f59e0b' : '1px solid rgba(255,255,255,0.06)',
+                      zIndex: isSelected || isBeingDragged ? 20 : 1,
+                      opacity: isBeingDragged ? 0.35 : 1,
+                      cursor: isSpacePressed ? 'inherit' : (isSelected ? 'move' : 'grab'),
+                      touchAction: 'none'
+                    }}>
+                    <div style={{
+                      width: '100%', height: '100%', backgroundColor: '#111827',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <img src={images[index]} alt={`图片 ${index + 1}`} 
+                        onLoad={(e) => {
+                          const aspect = e.currentTarget.naturalWidth / e.currentTarget.naturalHeight;
+                          setImageAspects(prev => ({ ...prev, [index]: aspect }));
+                        }}
+                        style={dynamicImgStyle}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {/* 联动控制线条 */}
-            {currentLayout.dividers.map((d, idx) => {
-              const isCol = d.type === 'col';
-              return (
-                <div key={idx}
-                  onMouseDown={e => handleDividerStart(e, d.type)}
-                  onTouchStart={e => handleDividerStart(e, d.type)} // 💡 🌟 修正 #3：桥接手机端拖拽绿线切割尺寸
-                  style={{
-                    position: 'absolute',
-                    left: isCol ? `calc(${d.pos}% - 6px)` : `${d.span[0]}%`,
-                    top: isCol ? `${d.span[0]}%` : `calc(${d.pos}% - 6px)`,
-                    width: isCol ? '12px' : `${d.span[1] - d.span[0]}%`,
-                    height: isCol ? `${d.span[1] - d.span[0]}%` : '12px',
-                    cursor: isCol ? 'ew-resize' : 'ns-resize',
-                    zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                  <div style={{
-                    width: isCol ? '2px' : '100%',
-                    height: isCol ? '100%' : '2px',
-                    backgroundColor: 'rgba(163,230,53,0.5)',
-                  }} />
-                </div>
-              );
-            })}
+              {/* 联动控制线条 */}
+              {currentLayout.dividers.map((d, idx) => {
+                const isCol = d.type === 'col';
+                return (
+                  <div key={idx}
+                    onMouseDown={e => handleDividerStart(e, d.type)}
+                    onTouchStart={e => handleDividerStart(e, d.type)}
+                    style={{
+                      position: 'absolute',
+                      left: isCol ? `calc(${d.pos}% - 6px)` : `${d.span[0]}%`,
+                      top: isCol ? `${d.span[0]}%` : `calc(${d.pos}% - 6px)`,
+                      width: isCol ? '12px' : `${d.span[1] - d.span[0]}%`,
+                      height: isCol ? `${d.span[1] - d.span[0]}%` : '12px',
+                      cursor: isCol ? 'ew-resize' : 'ns-resize',
+                      zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                    <div style={{
+                      width: isCol ? '2px' : '100%',
+                      height: isCol ? '100%' : '2px',
+                      backgroundColor: 'rgba(163,230,53,0.5)',
+                    }} />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
