@@ -203,7 +203,6 @@ export default function App() {
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [isWorkspacePanning, setIsWorkspacePanning] = useState(false);
 
-  // 💡 针对手机端小屏幕建立响应式自适应微缩系数
   const [mobileScale, setMobileScale] = useState(1);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -214,7 +213,6 @@ export default function App() {
     return () => { images.forEach(u => URL.revokeObjectURL(u)); };
   }, []);
 
-  // 监听手机屏幕尺寸变化，自动计算微缩系数，防止大画布撑破手机屏幕
   useEffect(() => {
     const handleResize = () => {
       if (!workspaceRef.current) return;
@@ -256,7 +254,6 @@ export default function App() {
     return { clientX: me.clientX, clientY: me.clientY };
   };
 
-  // 💡 几何数学公式：实时计算两根触控手指之间的物理直线距离
   const getTouchDistance = (e: React.TouchEvent | TouchEvent) => {
     if (e.touches.length < 2) return 0;
     const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -295,10 +292,40 @@ export default function App() {
     setCanvasZoom(z);
   };
 
+  // ─── 💡 🌟 核心升级：将双指手势代理绑定到整个大背景工作区 ────────────────────────
   const handleWorkspaceStart = (initEvent: React.MouseEvent | React.TouchEvent) => {
     const isTouch = 'touches' in initEvent;
+    
+    // 如果在手机端，且检测到双指按下，同时当前选种了某个图片格子
+    if (isTouch && initEvent.touches.length === 2 && selectedGridIndex !== null) {
+      if (initEvent.cancelable) initEvent.preventDefault();
+      
+      const idx = selectedGridIndex;
+      const initDist = getTouchDistance(initEvent);
+      const initScale = getTransform(idx).scale;
+
+      const onTouchMoveGlobalPinch = (me: TouchEvent) => {
+        if (me.touches.length < 2) return;
+        const currentDist = getTouchDistance(me);
+        if (initDist > 0 && currentDist > 0) {
+          const factor = currentDist / initDist;
+          // 隔空控制选中图层的无级放缩
+          updateTransform(idx, 'scale', Math.max(0.1, Math.min(8, initScale * factor)));
+        }
+      };
+
+      const onTouchEndGlobalPinch = () => {
+        window.removeEventListener('touchmove', onTouchMoveGlobalPinch);
+        window.removeEventListener('touchend', onTouchEndGlobalPinch);
+      };
+
+      window.addEventListener('touchmove', onTouchMoveGlobalPinch, { passive: false });
+      window.addEventListener('touchend', onTouchEndGlobalPinch);
+      return;
+    }
+
+    // 正常的单指抓手漫游空间
     if (!isSpacePressed && !isTouch && (initEvent as React.MouseEvent).button !== 1) return;
-    if (isTouch && initEvent.touches.length >= 2) return; // 留给格子双指缩放
     
     setIsWorkspacePanning(true);
     const { clientX: sx, clientY: sy } = getEventXY(initEvent);
@@ -327,7 +354,7 @@ export default function App() {
 
     const isSelected = selectedGridIndex === idx;
 
-    // 💡 🌟 核心升级：如果手机端检测到双指，立刻接管并强行进入多点触控（放缩）状态
+    // 💡 🌟 如果在格子上直接双指，也可以完美支持
     if (isTouch && reactEvent.touches.length === 2 && isSelected) {
       const initDist = getTouchDistance(reactEvent);
       const initScale = getTransform(idx).scale;
@@ -351,7 +378,7 @@ export default function App() {
       return;
     }
 
-    // 单指或鼠标正常平移
+    // 单指触摸图片开始平移
     const { clientX: sx, clientY: sy } = getEventXY(reactEvent);
     const t = getTransform(idx);
     const ioX = t.offsetX, ioY = t.offsetY;
@@ -361,7 +388,7 @@ export default function App() {
     const layoutSnap = getDynamicLayout(images.length, templateIndex, colPercent, rowPercent);
 
     const mv = (me: MouseEvent | TouchEvent) => {
-      if ('touches' in me && me.touches.length >= 2) return; // 突发双指则退出平移
+      if ('touches' in me && me.touches.length >= 2) return;
       const { clientX, clientY } = getEventXY(me);
       const dx = clientX - sx, dy = clientY - sy;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
@@ -490,7 +517,7 @@ export default function App() {
             borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
           }}>📂 批量导入照片</button>
           <span style={{ fontSize: '11px', color: '#64748b' }}>
-            {images.length > 0 ? `已智能载入 ${images.length} 张（双指缩放/多选相册已就绪）` : '暂未导入图片'}
+            {images.length > 0 ? `已智能载入 ${images.length} 张（隔空触控板模式已激活）` : '暂未导入图片'}
           </span>
           <button onClick={exportFusedImage} disabled={isExporting || !images.length} style={{
             marginLeft: 'auto', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px',
@@ -598,7 +625,6 @@ export default function App() {
             <span style={{ fontSize: '14px' }}>点击批量导入单据/花卉照片</span>
           </div>
         ) : (
-          /* 💡 🌟 核心升级：外层加上微缩缩放容器，根据 mobileScale 自动缩放，保证手机端完美呈现所有裁剪宽高比 */
           <div style={{
             transform: `scale(${mobileScale})`,
             transformOrigin: 'center center',
@@ -697,12 +723,12 @@ export default function App() {
                       width: isCol ? '2px' : '100%',
                       height: isCol ? '100%' : '2px',
                       backgroundColor: 'rgba(163,230,53,0.5)',
-                    }} />
-                  </div>
-                );
-              })}
-            </div>
+                  }} />
+                </div>
+              );
+            })}
           </div>
+        </div>
         )}
       </div>
 
