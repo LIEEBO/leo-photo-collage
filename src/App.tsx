@@ -33,7 +33,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
     return { cells, dividers };
   }
 
-  // 模板 0：智能矩阵均分
   if (tpl === 0) {
     const cols = Math.ceil(Math.sqrt(count));
     const rows = Math.ceil(count / cols);
@@ -56,7 +55,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
         dividers.push({ type: 'col', pos: c * (100 / itemsInRow), span: [r * rh, (r + 1) * rh] });
     }
   }
-  // 模板 1：左1大 + 右N小
   else if (tpl === 1) {
     cells.push({ x: 0, y: 0, w: col, h: 100 });
     dividers.push({ type: 'col', pos: col, span: [0, 100] });
@@ -81,19 +79,16 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
       }
     }
   }
-  // 模板 2：横向竖条均分
   else if (tpl === 2) {
     const w = 100 / count;
     for (let i = 0; i < count; i++) cells.push({ x: i * w, y: 0, w, h: 100 });
     for (let i = 1; i < count; i++) dividers.push({ type: 'col', pos: i * w, span: [0, 100] });
   }
-  // 模板 3：纵向横条均分
   else if (tpl === 3) {
     const h = 100 / count;
     for (let i = 0; i < count; i++) cells.push({ x: 0, y: i * h, w: 100, h });
     for (let i = 1; i < count; i++) dividers.push({ type: 'row', pos: i * h, span: [0, 100] });
   }
-  // 模板 4：上1大 + 下N小
   else if (tpl === 4) {
     cells.push({ x: 0, y: 0, w: 100, h: row });
     dividers.push({ type: 'row', pos: row, span: [0, 100] });
@@ -104,7 +99,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
       for (let i = 1; i < btmCount; i++) dividers.push({ type: 'col', pos: i * bw, span: [row, 100] });
     }
   }
-  // 模板 5：下1大 + 上N小
   else if (tpl === 5) {
     const topCount = count - 1;
     if (topCount > 0) {
@@ -115,7 +109,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
     cells.push({ x: 0, y: row, w: 100, h: 100 - row });
     dividers.push({ type: 'row', pos: row, span: [0, 100] });
   }
-  // 模板 6：右1大 + 左N小
   else if (tpl === 6) {
     const leftCount = count - 1;
     if (leftCount > 0) {
@@ -140,7 +133,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
     cells.push({ x: col, y: 0, w: 100 - col, h: 100 });
     dividers.push({ type: 'col', pos: col, span: [0, 100] });
   }
-  // 模板 7：经典三明治布局
   else if (tpl === 7) {
     if (count <= 2) {
       const w = 100 / count;
@@ -156,7 +148,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
       dividers.push({ type: 'col', pos: leftW, span: [0, 100] }, { type: 'col', pos: leftW + midW, span: [0, 100] });
     }
   }
-  // 模板 8：顶横 + 底分
   else if (tpl === 8) {
     if (count <= 2) {
       const h = 100 / count;
@@ -170,7 +161,6 @@ const getDynamicLayout = (count: number, tpl: number, col: number, row: number) 
       for (let i = 1; i < btmCount; i++) dividers.push({ type: 'col', pos: i * bw, span: [row, 100] });
     }
   }
-  // 模板 9：创意螺旋布局
   else if (tpl === 9) {
     if (count === 2) {
       cells.push({ x: 0, y: 0, w: col, h: 100 }, { x: col, y: 0, w: 100 - col, h: 100 });
@@ -235,20 +225,36 @@ export default function App() {
 
   const canvasSize = getCanvasDimensions(aspectRatio);
 
-  const handleDividerMouseDown = (e: React.MouseEvent, type: 'col' | 'row') => {
-    e.preventDefault();
-    e.stopPropagation();
+  // ─── 💡 统一转换电脑鼠标与移动端手指触控的坐标提取器 ─────────────────────────
+  const getEventXY = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
+    if ('touches' in e) {
+      if (e.touches && e.touches.length > 0) return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+      if (e.changedTouches && e.changedTouches.length > 0) return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
+    }
+    const me = e as MouseEvent | React.MouseEvent;
+    return { clientX: me.clientX, clientY: me.clientY };
+  };
+
+  const handleDividerStart = (initEvent: React.MouseEvent | React.TouchEvent, type: 'col' | 'row') => {
+    initEvent.stopPropagation();
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const onMove = (me: MouseEvent) => {
+    
+    const onMove = (me: MouseEvent | TouchEvent) => {
+      const { clientX, clientY } = getEventXY(me);
       const rawPos = type === 'col'
-        ? ((me.clientX - rect.left) / rect.width) * 100
-        : ((me.clientY - rect.top) / rect.height) * 100;
+        ? ((clientX - rect.left) / rect.width) * 100
+        : ((clientY - rect.top) / rect.height) * 100;
       if (type === 'col') setColPercent(Math.max(15, Math.min(85, rawPos)));
       else setRowPercent(Math.max(15, Math.min(85, rawPos)));
     };
-    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onUp);
+    };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false }); window.addEventListener('touchend', onUp);
   };
 
   const handleWorkspaceWheel = (e: React.WheelEvent) => {
@@ -260,62 +266,88 @@ export default function App() {
     setCanvasZoom(z);
   };
 
-  const handleWorkspaceMouseDown = (e: React.MouseEvent) => {
-    if (!isSpacePressed && e.button !== 1) return;
-    e.preventDefault();
+  const handleWorkspaceStart = (initEvent: React.MouseEvent | React.TouchEvent) => {
+    const isTouch = 'touches' in initEvent;
+    if (!isSpacePressed && !isTouch && (initEvent as React.MouseEvent).button !== 1) return;
+    
     setIsWorkspacePanning(true);
-    const sx=e.clientX, sy=e.clientY, ip={...canvasPan};
-    const mv=(me:MouseEvent)=>setCanvasPan({x:ip.x+(me.clientX-sx),y:ip.y+(me.clientY-sy)});
-    const up=()=>{ setIsWorkspacePanning(false); window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up); };
-    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+    const { clientX: sx, clientY: sy } = getEventXY(initEvent);
+    const ip = { ...canvasPan };
+    
+    const mv = (me: MouseEvent | TouchEvent) => {
+      const { clientX, clientY } = getEventXY(me);
+      setCanvasPan({ x: ip.x + (clientX - sx), y: ip.y + (clientY - sy) });
+    };
+    const up = () => {
+      setIsWorkspacePanning(false);
+      window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', mv); window.removeEventListener('touchend', up);
+    };
+    window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', mv, { passive: false }); window.addEventListener('touchend', up);
   };
 
-  const handleCellMouseDown = (reactEvent: React.MouseEvent, idx: number) => {
-    if (isSpacePressed || reactEvent.button !== 0) return;
-    reactEvent.preventDefault();
-    const sx=reactEvent.clientX, sy=reactEvent.clientY;
+  const handleCellStart = (reactEvent: React.MouseEvent | React.TouchEvent, idx: number) => {
+    const isTouch = 'touches' in reactEvent;
+    if (!isTouch && (reactEvent as React.MouseEvent).button !== 0) return;
+    if (isSpacePressed) return;
+    
+    // 💡 阻止移动端全屏下拉刷新的体验硬伤
+    if (reactEvent.cancelable) reactEvent.preventDefault();
+    reactEvent.stopPropagation();
+
+    const { clientX: sx, clientY: sy } = getEventXY(reactEvent);
     const isSelected = selectedGridIndex === idx;
     const t = getTransform(idx);
-    const ioX=t.offsetX, ioY=t.offsetY;
-    let hasMoved=false, lastTarget=idx;
+    const ioX = t.offsetX, ioY = t.offsetY;
+    let hasMoved = false, lastTarget = idx;
     if (!isSelected) setDraggedIndex(idx);
 
     const layoutSnap = getDynamicLayout(images.length, templateIndex, colPercent, rowPercent);
 
-    const mv = (me: MouseEvent) => {
-      const dx=me.clientX-sx, dy=me.clientY-sy;
-      if (Math.abs(dx)>5||Math.abs(dy)>5) hasMoved=true;
+    const mv = (me: MouseEvent | TouchEvent) => {
+      const { clientX, clientY } = getEventXY(me);
+      const dx = clientX - sx, dy = clientY - sy;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) hasMoved = true;
       
       if (isSelected) {
-        setTransforms(prev=>({ ...prev, [idx]:{ ...(prev[idx]||DEFAULT_TRANSFORM), offsetX:ioX+dx/canvasZoom, offsetY:ioY+dy/canvasZoom } }));
+        setTransforms(prev => ({
+          ...prev,
+          [idx]: { ...(prev[idx] || DEFAULT_TRANSFORM), offsetX: ioX + dx / canvasZoom, offsetY: ioY + dy / canvasZoom }
+        }));
       } else {
-        if (containerRef.current){
-          const r=containerRef.current.getBoundingClientRect();
-          const mx=((me.clientX-r.left)/r.width)*100, my=((me.clientY-r.top)/r.height)*100;
-          const found=layoutSnap.cells.findIndex(c=>mx>=c.x&&mx<=c.x+c.w&&my>=c.y&&my<=c.y+c.h);
-          lastTarget=found>=0?found:idx;
+        if (containerRef.current) {
+          const r = containerRef.current.getBoundingClientRect();
+          const mx = ((clientX - r.left) / r.width) * 100;
+          const my = ((clientY - r.top) / r.height) * 100;
+          const found = layoutSnap.cells.findIndex(c => mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h);
+          lastTarget = found >= 0 ? found : idx;
           setPotentialSwapIndex(lastTarget);
         }
       }
     };
 
     const up = () => {
-      window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up);
+      window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', mv); window.removeEventListener('touchend', up);
       setPotentialSwapIndex(null); setDraggedIndex(null);
-      if (!hasMoved) { setSelectedGridIndex(idx); }
-      else if (!isSelected && lastTarget !== idx) {
-        setImages(prev=>{ const n=[...prev]; [n[idx],n[lastTarget]]=[n[lastTarget],n[idx]]; return n; });
-        setTransforms(prev=>{ const n={...prev}; [n[idx],n[lastTarget]]=[n[lastTarget]||DEFAULT_TRANSFORM,n[idx]||DEFAULT_TRANSFORM]; return n; });
+      
+      if (!hasMoved) {
+        setSelectedGridIndex(idx);
+      } else if (!isSelected && lastTarget !== idx) {
+        setImages(prev => { const n = [...prev]; [n[idx], n[lastTarget]] = [n[lastTarget], n[idx]]; return n; });
+        setTransforms(prev => { const n = { ...prev }; [n[idx], n[lastTarget]] = [n[lastTarget] || DEFAULT_TRANSFORM, n[idx] || DEFAULT_TRANSFORM]; return n; });
         setImageAspects(prev => {
           const n = { ...prev }; const a = n[idx]; const b = n[lastTarget];
           if (a !== undefined) n[lastTarget] = a; else delete n[lastTarget];
           if (b !== undefined) n[idx] = b; else delete n[idx];
           return n;
         });
-        setSelectedGridIndex(prev=>prev===idx?lastTarget:prev===lastTarget?idx:prev);
+        setSelectedGridIndex(prev => prev === idx ? lastTarget : prev === lastTarget ? idx : prev);
       }
     };
-    window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up);
+    window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', mv, { passive: false }); window.addEventListener('touchend', up);
   };
 
   const handleCellWheel = (e: React.WheelEvent, idx: number) => {
@@ -358,7 +390,6 @@ export default function App() {
         const t = snapT[i] || DEFAULT_TRANSFORM;
         
         ctx.save(); ctx.beginPath(); ctx.rect(dx, dy, dw, dh); ctx.clip();
-
         ctx.translate(dx + dw / 2 + t.offsetX * sf, dy + dh / 2 + t.offsetY * sf);
         ctx.rotate((t.rotate * Math.PI) / 180); ctx.scale(t.scale, t.scale);
         
@@ -367,11 +398,9 @@ export default function App() {
         let renderW: number, renderH: number;
 
         if (rS > rT) {
-          renderH = dh;
-          renderW = dh * rS;
+          renderH = dh; renderW = dh * rS;
         } else {
-          renderW = dw;
-          renderH = dw / rS;
+          renderW = dw; renderH = dw / rS;
         }
         
         ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
@@ -494,10 +523,11 @@ export default function App() {
         )}
       </div>
 
+      {/* 💡 🌟 修正 #1：加入明确的 accept="image/*" 格式定义，强制解锁手机系统相册的多选九宫格 */}
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple style={{ display: 'none' }} />
 
       {/* ── PS 级别工作区 ── */}
-      <div onWheel={handleWorkspaceWheel} onMouseDown={handleWorkspaceMouseDown} style={{
+      <div onWheel={handleWorkspaceWheel} onMouseDown={handleWorkspaceStart} onTouchStart={handleWorkspaceStart} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexGrow: 1, width: '100%', minHeight: '420px',
         overflow: 'hidden', backgroundColor: '#070a10', position: 'relative',
@@ -544,21 +574,19 @@ export default function App() {
 
               if (imgAspect) {
                 if (imgAspect > cellAspect) {
-                  dynamicImgStyle.height = '100%';
-                  dynamicImgStyle.width = 'auto';
+                  dynamicImgStyle.height = '100%'; dynamicImgStyle.width = 'auto';
                 } else {
-                  dynamicImgStyle.width = '100%';
-                  dynamicImgStyle.height = 'auto';
+                  dynamicImgStyle.width = '100%'; dynamicImgStyle.height = 'auto';
                 }
               } else {
-                dynamicImgStyle.width = '100%';
-                dynamicImgStyle.height = '100%';
+                dynamicImgStyle.width = '100%'; dynamicImgStyle.height = '100%';
               }
 
               return (
                 <div key={index}
                   onWheel={e => handleCellWheel(e, index)}
-                  onMouseDown={e => handleCellMouseDown(e, index)}
+                  onMouseDown={e => handleCellStart(e, index)}
+                  onTouchStart={e => handleCellStart(e, index)} // 💡 🌟 修正 #2：桥接手机单指触摸起点信号
                   onClick={e => e.stopPropagation()}
                   style={{
                     position: 'absolute',
@@ -569,6 +597,7 @@ export default function App() {
                     zIndex: isSelected || isBeingDragged ? 20 : 1,
                     opacity: isBeingDragged ? 0.35 : 1,
                     cursor: isSpacePressed ? 'inherit' : (isSelected ? 'move' : 'grab'),
+                    touchAction: 'none' // 💡 强力锁死移动端网页原生缩放，彻底把画布留给拼图矩阵
                   }}>
                   <div style={{
                     width: '100%', height: '100%', backgroundColor: '#111827',
@@ -591,7 +620,8 @@ export default function App() {
               const isCol = d.type === 'col';
               return (
                 <div key={idx}
-                  onMouseDown={e => handleDividerMouseDown(e, d.type)}
+                  onMouseDown={e => handleDividerStart(e, d.type)}
+                  onTouchStart={e => handleDividerStart(e, d.type)} // 💡 🌟 修正 #3：桥接手机端拖拽绿线切割尺寸
                   style={{
                     position: 'absolute',
                     left: isCol ? `calc(${d.pos}% - 6px)` : `${d.span[0]}%`,
