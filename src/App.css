@@ -1,116 +1,637 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
+/* ==========================================================================
+   Leo Photo Collage — 全平台响应式样式
+   移动优先: < 640px / 平板: 640-1024px / 桌面: > 1024px
+   ========================================================================== */
+
+/* ─── Reset & Base ──────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
-}
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  --bg-deep: #090d16;
+  --bg-panel: #111827;
+  --bg-cell: #111827;
+  --bg-workspace: #070a10;
+  --border-subtle: #1e293b;
+  --border-mid: #334155;
+  --text-primary: #ffffff;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+  --accent: #a3e635;
+  --accent-bg: rgba(163, 230, 53, 0.12);
+  --accent-bg-light: rgba(163, 230, 53, 0.06);
+  --accent-border: rgba(163, 230, 53, 0.3);
+  --danger: #e11d48;
+  --warning: #f59e0b;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
-.container {
-  margin: 0;
-  padding-top: 10vh;
+/* ─── App Shell ─────────────────────────────────────────────────────────── */
+.app-shell {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  align-items: center;
+  justify-content: flex-start;
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  width: 100dvw;
+  background-color: var(--bg-deep);
+  padding: calc(12px + var(--safe-top)) 
+           calc(12px + var(--safe-right)) 
+           calc(12px + var(--safe-bottom)) 
+           calc(12px + var(--safe-left));
+  overflow: hidden;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+/* ─── Control Panel ─────────────────────────────────────────────────────── */
+.control-panel {
+  width: 100%;
+  max-width: 800px;
+  background-color: var(--bg-panel);
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 10px;
+  border: 1px solid var(--border-subtle);
+  z-index: 100;
+  flex-shrink: 0;
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
+.control-topbar {
   display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.image-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 100px;
+}
+
+.control-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.control-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 56px;
+  flex-shrink: 0;
+  font-weight: 600;
+  padding-top: 5px;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
+  gap: 5px;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
   font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  min-height: 36px;
 }
 
-button {
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-import {
+  padding: 8px 16px;
+  background-color: var(--accent);
+  color: var(--bg-deep);
+  font-size: 13px;
+  min-height: 40px;
+}
+
+.btn-import:hover {
+  background-color: #b8f055;
+}
+
+.btn-export {
+  padding: 8px 16px;
+  background-color: var(--danger);
+  color: #fff;
+  font-size: 12px;
+  margin-left: auto;
+  min-height: 40px;
+}
+
+.btn-export:disabled {
+  background-color: var(--border-mid);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-export:hover:not(:disabled) {
+  background-color: #f43f5e;
+}
+
+/* ─── Aspect Ratio Buttons ──────────────────────────────────────────────── */
+.aspect-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  flex: 1;
+}
+
+.btn-aspect {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  flex-shrink: 0;
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-mid);
+  min-height: 34px;
+}
+
+.btn-aspect.active {
+  background-color: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ─── Template Buttons ──────────────────────────────────────────────────── */
+.template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.btn-template {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 7px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-mid);
+  background-color: var(--border-subtle);
+  color: var(--text-muted);
+  min-width: 48px;
+  min-height: 50px;
+}
+
+.btn-template:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-template.active {
+  border-color: var(--accent);
+  background-color: var(--accent-bg);
+  color: var(--accent);
+}
+
+.btn-template:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.btn-template.active:hover {
+  border-color: var(--accent);
+}
+
+.template-label {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+/* ─── Adjustment Panel ──────────────────────────────────────────────────── */
+.adjust-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background-color: var(--accent-bg-light);
+  border: 1px dashed var(--accent-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.adjust-title {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adjust-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 130px;
+}
+
+.adjust-slider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+  height: 5px;
+  min-width: 80px;
+}
+
+.adjust-value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 42px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  text-align: right;
+}
+
+.adjust-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 10px;
+  border-radius: 4px;
+  min-height: 28px;
+}
+
+.btn-reset-angle {
+  background-color: var(--border-mid);
+  color: #fff;
+}
+
+.btn-reset-layer {
+  background-color: var(--danger);
+  color: #fff;
+}
+
+/* ─── Workspace ─────────────────────────────────────────────────────────── */
+.workspace {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  min-height: 280px;
+  overflow: hidden;
+  background-color: var(--bg-workspace);
+  position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+.workspace-empty {
   cursor: pointer;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
+/* ─── Drop Zone ─────────────────────────────────────────────────────────── */
+.drop-zone {
+  width: clamp(240px, 60vw, 320px);
+  height: clamp(240px, 60vw, 320px);
+  border: 2px dashed var(--border-mid);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  gap: 8px;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+.drop-zone:hover {
+  border-color: var(--accent);
+  background-color: rgba(163, 230, 53, 0.03);
+}
+
+.drop-zone-icon {
+  font-size: clamp(28px, 8vw, 40px);
+}
+
+.drop-zone-text {
+  font-size: clamp(12px, 3vw, 15px);
+  font-weight: 600;
+}
+
+.drop-zone-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ─── Canvas Scaler (for mobile auto-fit) ────────────────────────────────── */
+.canvas-scaler {
+  transform-origin: center center;
+  transition: transform 0.15s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Canvas Container ──────────────────────────────────────────────────── */
+.canvas-container {
+  position: relative;
+  background-color: var(--bg-deep);
+  border: 2px solid var(--border-mid);
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+  transform-origin: center center;
+}
+
+/* ─── Cells ─────────────────────────────────────────────────────────────── */
+.cell {
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cell-selected {
+  border: 2px solid var(--accent) !important;
+}
+
+.cell-swap-target {
+  border: 2px dashed var(--warning) !important;
+}
+
+.cell-dragging {
+  opacity: 0.35;
+}
+
+.cell-backdrop {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cell-backdrop img {
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ─── Dividers ──────────────────────────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+
+.divider-line {
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
+  transition: background-color 0.15s;
+}
+
+.divider-col .divider-line {
+  width: 2px;
+  height: 100%;
+  background-color: rgba(163, 230, 53, 0.5);
+}
+
+.divider-row .divider-line {
+  width: 100%;
+  height: 2px;
+  background-color: rgba(163, 230, 53, 0.5);
+}
+
+.divider:hover .divider-line {
+  background-color: var(--accent);
+}
+
+/* ─── Status Bar ────────────────────────────────────────────────────────── */
+.status-bar {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.status-zoom,
+.status-hint {
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   📱 TABLET — 640px+
+   ========================================================================== */
+@media (min-width: 640px) {
+  .app-shell {
+    padding: 16px 16px calc(16px + var(--safe-bottom)) 16px;
   }
 
-  a:hover {
-    color: #24c8db;
+  .control-panel {
+    padding: 14px 16px;
   }
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
+  .control-label {
+    width: 62px;
+    font-size: 12px;
   }
-  button:active {
-    background-color: #0f0f0f69;
+
+  .btn-template {
+    min-width: 52px;
+    min-height: 54px;
+    padding: 6px 8px;
+  }
+
+  .template-label {
+    font-size: 10px;
+  }
+
+  .btn-aspect {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .workspace {
+    min-height: 360px;
+  }
+
+  .status-bar {
+    gap: 24px;
+  }
+}
+
+/* ==========================================================================
+   💻 DESKTOP — 1024px+
+   ========================================================================== */
+@media (min-width: 1024px) {
+  .app-shell {
+    padding: 16px 24px calc(16px + var(--safe-bottom)) 24px;
+  }
+
+  .control-panel {
+    max-width: 840px;
+  }
+
+  .control-topbar {
+    flex-wrap: nowrap;
+  }
+
+  .template-row {
+    flex-wrap: nowrap;
+  }
+
+  .btn-template {
+    min-width: 56px;
+    min-height: 58px;
+  }
+
+  .workspace {
+    min-height: 420px;
+  }
+
+  .drop-zone {
+    width: 340px;
+    height: 340px;
+  }
+}
+
+/* ==========================================================================
+   📱 SMALL MOBILE — < 380px
+   ========================================================================== */
+@media (max-width: 380px) {
+  .control-panel {
+    padding: 8px 10px;
+    border-radius: 12px;
+    margin-bottom: 6px;
+  }
+
+  .control-topbar {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .btn-import,
+  .btn-export {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-height: 34px;
+  }
+
+  .image-count {
+    font-size: 10px;
+  }
+
+  .control-label {
+    width: 48px;
+    font-size: 10px;
+  }
+
+  .btn-template {
+    min-width: 42px;
+    min-height: 44px;
+    padding: 4px 5px;
+  }
+
+  .template-label {
+    font-size: 8px;
+  }
+
+  .btn-aspect {
+    padding: 4px 7px;
+    font-size: 10px;
+    min-height: 30px;
+  }
+
+  .btn-sm {
+    padding: 3px 8px;
+    font-size: 9px;
+    min-height: 26px;
+  }
+
+  .adjust-panel {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .workspace {
+    min-height: 220px;
+    border-radius: 12px;
+  }
+
+  .drop-zone {
+    width: 200px;
+    height: 200px;
+  }
+
+  .status-bar {
+    font-size: 10px;
+    gap: 10px;
+  }
+}
+
+/* ==========================================================================
+   🖥️ LARGE DESKTOP — > 1440px
+   ========================================================================== */
+@media (min-width: 1440px) {
+  .control-panel {
+    max-width: 900px;
+  }
+
+  .workspace {
+    min-height: 500px;
+  }
+}
+
+/* ─── Reduced Motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .canvas-scaler,
+  .canvas-container {
+    transition: none !important;
   }
 }
