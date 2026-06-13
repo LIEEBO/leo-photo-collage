@@ -22,8 +22,6 @@ export default function App() {
         imagesCount={state.images.length}
         selectedGridIndex={state.selectedGridIndex}
         isTouchDevice={state.isTouchDevice}
-        colPercent={state.colPercent}
-        rowPercent={state.rowPercent}
         getTransform={state.getTransform}
         updateTransform={state.updateTransform}
         resetTransform={state.resetTransform}
@@ -50,7 +48,6 @@ export default function App() {
         currentLayout={state.currentLayout}
         containerRef={state.containerRef}
         workspaceRef={state.workspaceRef}
-        isTouchDevice={state.isTouchDevice}
         handleWorkspaceWheel={state.handleWorkspaceWheel}
         handleWorkspaceStart={state.handleWorkspaceStart}
         handleCellStart={state.handleCellStart}

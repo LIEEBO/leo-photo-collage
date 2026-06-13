@@ -78,7 +78,7 @@ export async function exportFusedImage(
   }
 
   const dl = document.createElement('a');
-  dl.download = `GridStudio_Fused_${Date.now()}.jpg`;
+  dl.download = `Leo_Collage_${aspectRatio.replace(':', 'x')}_${Date.now()}.jpg`;
   dl.href = canvas.toDataURL('image/jpeg', 0.88);
   dl.click();
 

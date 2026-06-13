@@ -18,7 +18,6 @@ interface WorkspaceProps {
   currentLayout: { cells: CellLayout[]; dividers: DividerLayout[] };
   containerRef: RefObject<HTMLDivElement | null>;
   workspaceRef: RefObject<HTMLDivElement | null>;
-  isTouchDevice: boolean;
   handleWorkspaceWheel: (e: React.WheelEvent) => void;
   handleWorkspaceStart: (e: React.MouseEvent | React.TouchEvent) => void;
   handleCellStart: (e: React.MouseEvent | React.TouchEvent, idx: number) => void;
@@ -33,7 +32,7 @@ const Workspace: React.FC<WorkspaceProps> = ({
   images, imagesCount, selectedGridIndex, draggedIndex, potentialSwapIndex,
   transforms, imageAspects, canvasSize, canvasZoom, canvasPan,
   isSpacePressed, isWorkspacePanning, mobileScale, currentLayout,
-  containerRef, workspaceRef, isTouchDevice,
+  containerRef, workspaceRef,
   handleWorkspaceWheel, handleWorkspaceStart, handleCellStart,
   handleDividerStart, handleCellWheel, triggerBatchUpload, handleDrop,
   setImageAspects,

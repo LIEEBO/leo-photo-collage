@@ -25,8 +25,6 @@ interface ControlPanelProps {
   imagesCount: number;
   selectedGridIndex: number | null;
   isTouchDevice: boolean;
-  colPercent: number;
-  rowPercent: number;
   getTransform: (idx: number) => TransformState;
   updateTransform: (idx: number, key: keyof TransformState, value: number) => void;
   resetTransform: (idx: number) => void;
@@ -40,7 +38,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   aspectRatio, setAspectRatio,
   templateIndex, setTemplateIndex,
   isExporting, imagesCount, selectedGridIndex,
-  isTouchDevice, colPercent, rowPercent,
+  isTouchDevice,
   getTransform, updateTransform, resetTransform,
   fileInputRef, triggerBatchUpload, handleFileChange, exportImage,
 }) => {
@@ -109,31 +107,76 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       {/* ── 选中图片调节滑块 ── */}
       {selectedGridIndex !== null && (
         <div className="adjust-panel">
-          <span className="adjust-title">⚙️ 调节图 {selectedGridIndex + 1}</span>
-          <div className="adjust-controls">
-            <input
-              type="range"
-              min="-180" max="180" step="0.1"
-              value={getTransform(selectedGridIndex).rotate}
-              onChange={e => updateTransform(selectedGridIndex, 'rotate', parseFloat(e.target.value))}
-              className="adjust-slider"
-            />
-            <span className="adjust-value">
-              {getTransform(selectedGridIndex).rotate.toFixed(1)}°
-            </span>
+          <div className="adjust-heading">
+            <span className="adjust-title">调节图 {selectedGridIndex + 1}</span>
+            <span className="adjust-mode">{isTouchDevice ? '触屏微调' : '精确微调'}</span>
+          </div>
+          <div className="adjust-grid">
+            <label className="adjust-control">
+              <span>缩放</span>
+              <input
+                type="range"
+                min="0.2" max="4" step="0.01"
+                value={getTransform(selectedGridIndex).scale}
+                onChange={e => updateTransform(selectedGridIndex, 'scale', parseFloat(e.target.value))}
+                className="adjust-slider"
+              />
+              <span className="adjust-value">
+                {getTransform(selectedGridIndex).scale.toFixed(2)}x
+              </span>
+            </label>
+            <label className="adjust-control">
+              <span>旋转</span>
+              <input
+                type="range"
+                min="-180" max="180" step="0.1"
+                value={getTransform(selectedGridIndex).rotate}
+                onChange={e => updateTransform(selectedGridIndex, 'rotate', parseFloat(e.target.value))}
+                className="adjust-slider"
+              />
+              <span className="adjust-value">
+                {getTransform(selectedGridIndex).rotate.toFixed(1)}°
+              </span>
+            </label>
+            <label className="adjust-control">
+              <span>左右</span>
+              <input
+                type="range"
+                min="-220" max="220" step="1"
+                value={getTransform(selectedGridIndex).offsetX}
+                onChange={e => updateTransform(selectedGridIndex, 'offsetX', parseFloat(e.target.value))}
+                className="adjust-slider"
+              />
+              <span className="adjust-value">
+                {Math.round(getTransform(selectedGridIndex).offsetX)}px
+              </span>
+            </label>
+            <label className="adjust-control">
+              <span>上下</span>
+              <input
+                type="range"
+                min="-220" max="220" step="1"
+                value={getTransform(selectedGridIndex).offsetY}
+                onChange={e => updateTransform(selectedGridIndex, 'offsetY', parseFloat(e.target.value))}
+                className="adjust-slider"
+              />
+              <span className="adjust-value">
+                {Math.round(getTransform(selectedGridIndex).offsetY)}px
+              </span>
+            </label>
           </div>
           <div className="adjust-actions">
             <button
               onClick={() => updateTransform(selectedGridIndex, 'rotate', 0)}
               className="btn btn-sm btn-reset-angle"
             >
-              角零位
+              旋转归零
             </button>
             <button
               onClick={() => resetTransform(selectedGridIndex)}
               className="btn btn-sm btn-reset-layer"
             >
-              重置图层
+              重置图片
             </button>
           </div>
         </div>

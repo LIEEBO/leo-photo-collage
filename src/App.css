@@ -51,6 +51,7 @@ html, body {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
 }
 
 /* ─── App Shell ─────────────────────────────────────────────────────────── */
@@ -75,6 +76,9 @@ html, body {
 .control-panel {
   width: 100%;
   max-width: 800px;
+  max-height: 46dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: var(--bg-panel);
   padding: 12px 14px;
   border-radius: var(--radius-lg);
@@ -82,6 +86,8 @@ html, body {
   border: 1px solid var(--border-subtle);
   z-index: 100;
   flex-shrink: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-mid) transparent;
 }
 
 .control-topbar {
@@ -173,9 +179,18 @@ html, body {
 /* ─── Aspect Ratio Buttons ──────────────────────────────────────────────── */
 .aspect-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.aspect-buttons::-webkit-scrollbar,
+.template-buttons::-webkit-scrollbar {
+  display: none;
 }
 
 .btn-aspect {
@@ -198,9 +213,13 @@ html, body {
 /* ─── Template Buttons ──────────────────────────────────────────────────── */
 .template-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
 }
 
 .btn-template {
@@ -248,10 +267,16 @@ html, body {
   background-color: var(--accent-bg-light);
   border: 1px dashed var(--accent-border);
   border-radius: var(--radius-md);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.adjust-heading {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .adjust-title {
@@ -261,26 +286,41 @@ html, body {
   white-space: nowrap;
 }
 
-.adjust-controls {
-  display: flex;
+.adjust-mode {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.adjust-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.adjust-control {
+  display: grid;
+  grid-template-columns: 36px minmax(92px, 1fr) 52px;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 130px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .adjust-slider {
-  flex: 1;
+  width: 100%;
   accent-color: var(--accent);
   cursor: pointer;
-  height: 5px;
-  min-width: 80px;
+  height: 28px;
+  min-width: 0;
 }
 
 .adjust-value {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
-  min-width: 42px;
+  min-width: 0;
   font-family: 'SF Mono', 'Fira Code', monospace;
   text-align: right;
 }
@@ -288,6 +328,8 @@ html, body {
 .adjust-actions {
   display: flex;
   gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .btn-sm {
@@ -475,6 +517,7 @@ html, body {
 
   .control-panel {
     padding: 14px 16px;
+    max-height: 44dvh;
   }
 
   .control-label {
@@ -516,6 +559,8 @@ html, body {
 
   .control-panel {
     max-width: 840px;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .control-topbar {
@@ -524,6 +569,12 @@ html, body {
 
   .template-row {
     flex-wrap: nowrap;
+  }
+
+  .aspect-buttons,
+  .template-buttons {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 
   .btn-template {
@@ -549,6 +600,7 @@ html, body {
     padding: 8px 10px;
     border-radius: 12px;
     margin-bottom: 6px;
+    max-height: 48dvh;
   }
 
   .control-topbar {
@@ -558,9 +610,9 @@ html, body {
 
   .btn-import,
   .btn-export {
-    padding: 6px 12px;
+    padding: 6px 10px;
     font-size: 11px;
-    min-height: 34px;
+    min-height: 40px;
   }
 
   .image-count {
@@ -568,13 +620,13 @@ html, body {
   }
 
   .control-label {
-    width: 48px;
+    width: 44px;
     font-size: 10px;
   }
 
   .btn-template {
     min-width: 42px;
-    min-height: 44px;
+    min-height: 46px;
     padding: 4px 5px;
   }
 
@@ -585,7 +637,7 @@ html, body {
   .btn-aspect {
     padding: 4px 7px;
     font-size: 10px;
-    min-height: 30px;
+    min-height: 38px;
   }
 
   .btn-sm {
@@ -597,6 +649,17 @@ html, body {
   .adjust-panel {
     padding: 8px 10px;
     gap: 6px;
+  }
+
+  .adjust-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .adjust-control {
+    grid-template-columns: 32px minmax(80px, 1fr) 48px;
+    gap: 6px;
+    font-size: 10px;
   }
 
   .workspace {

@@ -5,7 +5,7 @@ import App from "./App";
 // 注册 Service Worker (PWA)
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
       // 静默失败，不影响主功能
     });
   });

@@ -1,17 +1,19 @@
 /* eslint-disable no-restricted-globals */
 const CACHE_NAME = 'leo-collage-v1';
+const SCOPE = self.registration.scope;
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.svg',
+  './',
+  './index.html',
+  './manifest.json',
+  './icon.svg',
 ];
+const cacheUrl = (path) => new URL(path, SCOPE).toString();
 
 // Install: pre-cache core assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS).catch(() => {});
+      return cache.addAll(ASSETS.map(cacheUrl)).catch(() => {});
     })
   );
   self.skipWaiting();
@@ -39,9 +41,11 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol === 'chrome-extension:') return;
 
   // Cache-first for static assets
+  if (url.origin !== self.location.origin || !url.href.startsWith(SCOPE)) return;
+
   if (
     url.pathname.match(/\.(js|css|svg|png|jpg|jpeg|webp|woff2?|json)$/) ||
-    url.pathname === '/'
+    url.href === SCOPE
   ) {
     event.respondWith(
       caches.match(request).then((cached) => {
